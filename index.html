@@ -148,6 +148,34 @@
   .footer{text-align:center;font-size:11px;color:var(--txt-faint);letter-spacing:1px;margin-top:26px;}
   .empty{padding:36px 20px;text-align:center;color:var(--txt-faint);letter-spacing:.5px;}
 
+  /* neon Call-to-Action table */
+  .cta-note{font-size:12px;color:var(--txt-faint);padding:12px 20px 6px;letter-spacing:.3px;}
+  .cta-note b{color:var(--green);}
+  .tbl-wrap{overflow-x:auto;padding:8px 12px 16px;}
+  .ntable{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:760px;}
+  .ntable thead th{text-align:left;font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+    font-size:10.5px;color:var(--cyan);padding:11px 10px;white-space:nowrap;
+    background:linear-gradient(90deg,rgba(77,139,255,0.18),rgba(160,107,255,0.12));
+    border-top:1px solid var(--line-bright);border-bottom:1px solid var(--line-bright);}
+  .ntable thead th:first-child{border-top-left-radius:10px;}
+  .ntable thead th:last-child{border-top-right-radius:10px;}
+  .ntable tbody td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--txt);}
+  .ntable tbody tr:nth-child(even){background:rgba(6,10,24,0.4);}
+  .ntable tbody tr:hover{background:rgba(61,245,255,0.05);}
+  .ntable td.c{text-align:center;color:var(--txt-dim);}
+  .ntable td.nowrap{white-space:nowrap;}
+  .cta-txt-cell{font-family:'Noto Sans Bengali','Rajdhani',sans-serif;line-height:1.7;min-width:230px;color:var(--txt);}
+  .cta-date{font-size:10px;color:var(--txt-faint);margin-top:5px;letter-spacing:.5px;text-transform:uppercase;}
+  .ntable textarea.rin{min-height:46px;padding:8px 9px;font-size:12px;line-height:1.45;}
+  .ntable select.rin{padding:8px 9px;font-size:12px;}
+  .btn.sm{padding:9px 12px;font-size:13px;letter-spacing:0;}
+  .rowsave{width:100%;}
+  .rowmsg{font-size:10px;margin-top:6px;letter-spacing:.3px;text-align:center;min-height:12px;}
+  .rowmsg.ok{color:var(--green);} .rowmsg.err{color:var(--red);}
+  .tbl-empty{text-align:center;color:var(--txt-faint);padding:28px 10px;}
+  .saveall-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:4px 20px 20px;}
+  #saveall-msg{font-size:13px;letter-spacing:.4px;} #saveall-msg.ok{color:var(--green);} #saveall-msg.err{color:var(--red);}
+
   .cors-help{margin:0 2px 18px;font-size:12px;color:var(--amber);line-height:1.7;letter-spacing:.2px;
     border:1px solid rgba(255,195,77,0.35);border-radius:10px;padding:12px 14px;background:rgba(255,195,77,0.05);display:none;}
   .cors-help code{font-family:ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.35);padding:1px 5px;border-radius:4px;}
@@ -185,21 +213,30 @@
 "use strict";
 
 /* ==========================================================================
-   CONFIG  (GitHub Pages — direct to API)
+   CONFIG  —  standalone, NO proxy (calls the API directly)
    --------------------------------------------------------------------------
-   The page calls the API directly. Your browser can already reach the API, so
-   no proxy is needed — the ONLY requirement is that the API returns a CORS
-   header for this page's origin. Add this page's origin (e.g.
-   https://bakhtiar-afbl.github.io) to CORS_ORIGINS on the API and restart it.
+   This file talks straight to the API. For that to work, the API must send a
+   CORS header that allows this page's origin. The simplest setup that works
+   everywhere (a double-clicked file://, localhost, or a hosted page) is, in the
+   API's main.py:
+
+       app.add_middleware(CORSMiddleware, allow_origins=["*"],
+           allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+
+   …then restart the deployed API. (Wildcard "*" is fine because the API uses a
+   bearer token, not cookies. With credentials disabled, "*" even satisfies a
+   local file:// page, whose origin is "null".)
 
    ACCESS_TOKEN : an access token sent with every request (NOT the SECRET_KEY).
                   30-day, low-privilege ("User") token. When it expires, replace
                   it (log in at the API's /ui, pick "30 days", copy the token).
-   NOTE: anyone who can open this page can read this token — keep the repo
-         private if you can, and rotate the token when it expires.
    ========================================================================== */
-const API_BASE     = "https://arlapi.ibos.io";
 const ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MzUwODkzOCwiZXhwIjoxNzg2MTAwOTM4LCJlbnJvbGwiOjMwNjAwNywidXNlcm5hbWUiOiIzMDYwMDciLCJyb2xlIjoiVXNlciIsImp0aSI6ImNjYjY2MDdkYzI2NDg0YjI1NTE0ZTc5Mjk0NWY1NDg4In0.JFqvPMUPVktzE5c5ebsV4npSdGflpP10dPXymutxMEk";
+const GATEWAYS = [
+  { type: "direct", url: "https://arlapi.ibos.io" },   // API directly — NO proxy (needs the CORS fix in main.py + server restart)
+];
+const _BADGW = new Set([502, 503, 504]);
+let   _LOCKED = null;
 
 const $=(id)=>document.getElementById(id);
 const esc=(s)=>(s==null?"":String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -230,19 +267,44 @@ function fmtDate(s){if(!s)return"—";const d=new Date(s);if(isNaN(d))return esc
 function statusColor(v){const o=STATUS_OPTIONS.find(x=>x.v.toLowerCase()===String(v||"").toLowerCase());return o?o.c:'var(--txt-dim)';}
 function showCorsHelp(){
   const origin=(location.origin&&location.origin!=="null")?location.origin:"(this file's origin)";
+  const gws=GATEWAYS.map(g=>esc(g.url)).join(", ");
   $("corsHelp").style.display="block";
-  $("corsHelp").innerHTML=`⚠ The API didn't allow this page. Add this origin to the API's CORS list and restart it:<br>`+
-    `origin = <code>${esc(origin)}</code><br>`+
-    `In the API's <code>main.py</code>, hardcode it in the CORS middleware (see notes), or set `+
-    `<code>CORS_ORIGINS</code> to include it. Verify with the curl OPTIONS test. `+
-    `Opening the file directly (file://) always fails — serve it over http(s).`;
+  $("corsHelp").innerHTML=`⚠ The API didn't allow this page (origin <code>${esc(origin)}</code>).<br>`+
+    `In the API's <code>main.py</code> set CORS to allow it — simplest is `+
+    `<code>allow_origins=["*"], allow_credentials=False</code> — then restart the deployed API. `+
+    `Verify with the curl OPTIONS test.`;
 }
-/* The page calls the API directly (your browser can reach it). This only works
-   once the API returns an Access-Control-Allow-Origin header for this origin. */
+/* Build the request URL for a gateway. */
+function _gwUrl(gw, path){
+  const base=gw.url.replace(/\/+$/,'');
+  return gw.type==='proxy' ? (base+"?p="+encodeURIComponent(path)) : (base+path);
+}
+/* Try each gateway in order; skip ones that are unreachable, return 502/503/504,
+   or dump raw PHP/HTML instead of JSON. Lock the first that works so later calls
+   (e.g. the PUT) reuse it. */
 async function apiFetch(path, opts){
-  const base = API_BASE.replace(/\/+$/,'');
-  try{ return await fetch(base + path, opts); }
-  catch(e){ const err=new Error("NETWORK"); err.cors=true; throw err; }
+  const list = _LOCKED ? [_LOCKED] : GATEWAYS;
+  for(let i=0;i<list.length;i++){
+    const gw=list[i], isLast=(i===list.length-1);
+    let r;
+    try{
+      r=await fetch(_gwUrl(gw,path), opts);
+    }catch(e){
+      if(isLast){ const err=new Error("NETWORK"); err.cors=true; throw err; }
+      continue;   // CORS/network failure on this gateway → try the next
+    }
+    if(!isLast){
+      if(_BADGW.has(r.status)) continue;                       // proxy/API infra error → next
+      const ct=(r.headers.get('content-type')||'').toLowerCase();
+      if(!ct.includes('json')){
+        let peek=''; try{ peek=await r.clone().text(); }catch(e){}
+        if(/^\s*<(\?php|!doctype|html)/i.test(peek)) continue; // raw source/HTML, not the API → next
+      }
+    }
+    _LOCKED=gw;   // this gateway works — reuse it for the rest of the session
+    return r;
+  }
+  const err=new Error("NETWORK"); err.cors=true; throw err;
 }
 function ring(percent,colorVar,big,small){
   const p=pctc(percent),r=38,c=2*Math.PI*r,off=c*(1-p/100);const uid='g'+Math.random().toString(36).slice(2,8);
@@ -297,8 +359,11 @@ function renderReport(){
   const vis=visibleRows();
   const hiddenDone=rows.filter(r=>isDone(r.Status)).length;
 
-  const detailCards=vis.length? vis.map(detailCard).join("") :
-    `<div class="glass card"><div class="empty">No matching reports for this filter${hiddenDone&&!SHOW_DONE?` · ${hiddenDone} done row(s) hidden`:''}.</div></div>`;
+  const tableRows=vis.length? vis.map((r,i)=>ctaRow(r,i)).join("") :
+    `<tr><td colspan="5" class="tbl-empty">No matching call-to-actions for this filter${hiddenDone&&!SHOW_DONE?` · ${hiddenDone} done hidden`:''}.</td></tr>`;
+  // primary row for the header chart = the visible row carrying the delivery metrics
+  const primary = vis.slice().sort((a,b)=>(Number(b.TargetValue)||0)-(Number(a.TargetValue)||0))[0] || vis[0] || rows[0];
+  const summaryHtml = primary ? summaryCard(primary) : "";
 
   $("report").innerHTML=`
     <div class="glass card">
@@ -320,46 +385,41 @@ function renderReport(){
       </div>
     </div>
 
-    ${detailCards}
+    ${summaryHtml}
 
-    <div class="glass card edit-card">
-      <div class="card-head"><div><div class="title" style="font-size:13px">Your Commitment &amp; Status</div>
-        <div class="sub">Editable · applies to this zone (enroll ${esc(ENROLL)})</div></div>
+    <div class="glass card">
+      <div class="card-head"><div class="title" style="font-size:13px">Call to Action</div>
         <div class="zone-pill" style="color:var(--green);border-color:rgba(57,255,160,0.4);background:rgba(57,255,160,0.06)">Editable</div></div>
-      <div class="card-body">
-        <p class="edit-note">Only <b>User Commitment</b> and <b>Status</b> are editable — every other field is read-only. Change your status any time and re-save. Setting it to <b>Done/Completed</b> hides the report from the list above.</p>
-        <div class="edit-grid">
-          <div class="field-block"><div class="fl">User Commitment <span class="lock-badge">✎ Editable</span></div>
-            <textarea id="commitment" placeholder="Write your commitment / action plan / opinion…">${esc(latest.UserCommitment||'')}</textarea>
-            <div class="cur-val" id="curCommit">Currently saved: <b>${latest.UserCommitment?esc(latest.UserCommitment):'—'}</b></div></div>
-          <div class="field-block"><div class="fl">Status <span class="lock-badge">✎ Editable</span></div>
-            <select id="statusSel">${STATUS_OPTIONS.map(o=>`<option value="${esc(o.v)}" ${o.v.toLowerCase()===String(latest.Status||'').toLowerCase()?'selected':''}>${esc(o.t)}</option>`).join('')}</select>
-            <div class="cur-val">Currently saved: <span class="status-current" id="curStatusChip" style="color:${statusColor(latest.Status||'')};border-color:currentColor">${latest.Status?esc(latest.Status):'Not set'}</span></div></div>
-          <div class="save-row">
-            <button class="btn save" id="saveBtn" onclick="saveChanges()">💾 Save Commitment &amp; Status</button>
-            <button class="btn ghost" onclick="loadReport()">↻ Reload</button>
-            <span id="save-msg"></span>
-          </div>
-        </div>
+      <div class="cta-note">Each row's <b>User Commitment</b> and <b>Status</b> are editable — fill them in, then click <b>Submit All</b> to save every row at once. Everything else is read-only.</div>
+      <div class="tbl-wrap">
+        <table class="ntable">
+          <thead><tr>
+            <th style="width:40px">SL</th>
+            <th>Call to Action</th>
+            <th style="width:96px">Deadline</th>
+            <th style="width:240px">User Commitment</th>
+            <th style="width:150px">Status</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <div class="saveall-row">
+        <button class="btn save" id="saveAllBtn" onclick="saveAll()">💾 Submit All</button>
+        <button class="btn ghost" onclick="loadReport()">↻ Reload</button>
+        <span id="saveall-msg"></span>
       </div>
     </div>`;
   $("report").style.display="block";
 }
 
-function detailCard(r){
+/* ---------- header chart / summary (rings + tiles) ---------- */
+function summaryCard(r){
   const valAch=(r.TargetValue?(r.ActualValue/r.TargetValue*100):(r.Achievement||0));
   const qtyAch=(r.TargetQty?(r.ActualQty/r.TargetQty*100):0);
-  const sc=statusColor(r.Status||"");
-  const statusFlag=r.Status?`<span class="statusflag" style="color:${sc}">● ${esc(r.Status)}</span>`:'';
   return `<div class="glass card">
-    <div class="card-head"><div><div class="title" style="font-size:14px">${fmtDate(r.ReportDate)}</div>
-      <div class="sub">Detail #${esc(r.DetailID)} · Header ${esc(r.AutoID)}</div></div>
-      <div class="zone-pill">Ach ${fmtNum(r.Achievement,2)}%</div></div>
+    <div class="card-head"><div class="title" style="font-size:13px">MTD Performance</div>
+      <div class="zone-pill">${fmtDate(r.ReportDate)}</div></div>
     <div class="card-body">
-      <div class="meta-strip" style="margin-bottom:16px">
-        <span><b>Zone Code:</b> ${esc(r.intZone??'—')}</span>
-        <span><b>Email To:</b> ${esc(r.EmailTo||'—')}</span>
-      </div>
       <div class="kpi-grid">
         <div class="kpi">${ring(valAch,'var(--cyan)',fmtNum(valAch,1)+'%','Value')}
           <div class="kpi-meta"><div class="k-lbl">Value · Delivery vs Target</div>
@@ -375,34 +435,62 @@ function detailCard(r){
         <div class="tile" style="--tile-c:var(--green)"><div class="t-lbl">Actual Value</div><div class="t-val">${fmtLacs(r.ActualValue)}</div></div>
         <div class="tile" style="--tile-c:var(--blue)"><div class="t-lbl">Target Value</div><div class="t-val">${fmtLacs(r.TargetValue)}</div></div>
       </div>
-      <div style="margin-top:16px"><div class="cta"><div class="cta-txt">${esc(r.CallToAction||'—')}</div>
-        <span class="deadline-chip">⏱ Deadline · ${fmtDate(r.Deadline)}</span>${statusFlag}</div></div>
     </div></div>`;
+}
+
+/* one editable table row per Call to Action (per DetailID) */
+function ctaRow(r,i){
+  const did=r.DetailID;
+  const opts=STATUS_OPTIONS.map(o=>`<option value="${esc(o.v)}" ${o.v.toLowerCase()===String(r.Status||'').toLowerCase()?'selected':''}>${esc(o.t)}</option>`).join('');
+  return `<tr data-did="${esc(did)}">
+    <td class="c">${i+1}</td>
+    <td class="cta-txt-cell">${esc(r.CallToAction||'—')}<div class="cta-date">${fmtDate(r.ReportDate)}</div></td>
+    <td class="c nowrap">${fmtDate(r.Deadline)}</td>
+    <td><textarea class="rin" id="commit_${esc(did)}" rows="2" placeholder="Your commitment…">${esc(r.UserCommitment||'')}</textarea></td>
+    <td><select class="rin" id="status_${esc(did)}">${opts}</select></td>
+  </tr>`;
 }
 
 function onFilter(){DATE_FILTER=$("dateSel").value;renderReport();}
 function onToggleDone(){SHOW_DONE=$("showDone").checked;DATE_FILTER="__all__";renderReport();}
 
-/* ---------- SAVE (PUT) ---------- */
-async function saveChanges(){
-  const commitment=$("commitment").value,status=$("statusSel").value;
-  const btn=$("saveBtn");btn.disabled=true;const sm=$("save-msg");sm.className="";sm.innerHTML='<span class="spinner"></span>Saving…';
-  try{
-    const res=await apiFetch(`/api/v1/daily-performance/update/${encodeURIComponent(ENROLL)}`,{
-      method:'PUT',headers:{'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer '+ACCESS_TOKEN},
-      body:JSON.stringify({UserCommitment:commitment,Status:status})});
-    if(res.status===401){sm.className="err";sm.textContent="⚠ Token expired — replace ACCESS_TOKEN in the file.";toast('Token expired',false);return;}
-    if(!res.ok){let detail=res.statusText;try{const j=await res.json();if(j&&j.detail)detail=(typeof j.detail==='string'?j.detail:JSON.stringify(j.detail));}catch(e){}throw new Error(`HTTP ${res.status} — ${detail}`);}
-    const j=await res.json();
-    ALL_ROWS.forEach(row=>{row.UserCommitment=commitment;row.Status=status;});
-    toast("Saved successfully",true);
-    renderReport();
-    const sm2=$("save-msg");if(sm2){sm2.className="ok";sm2.textContent="✓ "+(j.message||"Saved");}
-  }catch(err){
-    const sm3=$("save-msg");
-    if(sm3){sm3.className="err";sm3.textContent="⚠ "+(err.cors?"Couldn't reach the API (CORS / network).":(err.message||String(err)));}
-    toast("Save failed",false);
-  }finally{const b=$("saveBtn");if(b)b.disabled=false;}
+/* ---------- SAVE ALL rows with one button (PUT each by DetailID) ---------- */
+async function saveAll(){
+  // snapshot the current edits from every visible row before anything re-renders
+  const edits = visibleRows().map(r=>({
+    did: r.DetailID,
+    commitment: ($("commit_"+r.DetailID)||{}).value || "",
+    status: ($("status_"+r.DetailID)||{}).value || ""
+  }));
+  if(!edits.length){ toast("Nothing to save",false); return; }
+
+  const btn=$("saveAllBtn"); if(btn)btn.disabled=true;
+  const msg=$("saveall-msg"); if(msg){msg.className="";msg.innerHTML='<span class="spinner"></span>Saving all…';}
+
+  let ok=0, fail=0, tokenBad=false;
+  for(const e of edits){
+    try{
+      const res=await apiFetch(`/api/v1/daily-performance/detail/${encodeURIComponent(e.did)}`,{
+        method:'PUT',headers:{'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer '+ACCESS_TOKEN},
+        body:JSON.stringify({UserCommitment:e.commitment, Status:e.status})});
+      if(res.status===401){ tokenBad=true; break; }
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      await res.json().catch(()=>({}));
+      const row=ALL_ROWS.find(x=>String(x.DetailID)===String(e.did)); if(row){row.UserCommitment=e.commitment; row.Status=e.status;}
+      ok++;
+    }catch(err){ fail++; }
+  }
+
+  if(tokenBad){
+    if(btn)btn.disabled=false;
+    const m=$("saveall-msg"); if(m){m.className="err";m.textContent="⚠ Token expired — replace ACCESS_TOKEN.";}
+    toast("Token expired",false); return;
+  }
+
+  toast(fail? `Saved ${ok}, ${fail} failed` : `Saved all ${ok} row(s)`, !fail);
+  renderReport();                                   // re-render → "show all" with saved values
+  const m=$("saveall-msg");
+  if(m){ m.className = fail?"err":"ok"; m.textContent = `✓ Saved ${ok} row(s)` + (fail?` · ${fail} failed`:""); }
 }
 
 /* ---------- boot ---------- */
