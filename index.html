@@ -204,8 +204,8 @@
    NOTE: anyone who can open this page can read this token, so host it
          privately/internally — do NOT put it in a public repository.
    ========================================================================== */
-const API_DIRECT = "https://arlapi.ibos.io";   // used only as a fallback
-const PROXY_PATH = "proxy.php";                // same-origin PHP proxy (preferred)
+const API_DIRECT = "https://arlapi.ibos.io";                  // used only as a fallback
+const PROXY_PATH = "https://ael.bakhtiar360.com/proxy.php";   // your cPanel proxy (adds CORS)
 const ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MzUwODkzOCwiZXhwIjoxNzg2MTAwOTM4LCJlbnJvbGwiOjMwNjAwNywidXNlcm5hbWUiOiIzMDYwMDciLCJyb2xlIjoiVXNlciIsImp0aSI6ImNjYjY2MDdkYzI2NDg0YjI1NTE0ZTc5Mjk0NWY1NDg4In0.JFqvPMUPVktzE5c5ebsV4npSdGflpP10dPXymutxMEk";
 let RESOLVED_MODE = null;                       // 'proxy' | 'direct' (locked after first success)
 const _MISS = new Set([404,405,501,502,503,504]);
