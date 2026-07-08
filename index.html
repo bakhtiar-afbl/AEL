@@ -185,23 +185,20 @@
 "use strict";
 
 /* ==========================================================================
-   CONFIG  (GitHub Pages deployment)
+   CONFIG  (GitHub Pages — direct to API)
    --------------------------------------------------------------------------
-   GitHub Pages is static and cannot run a proxy, so every API call goes
-   through a small free Cloudflare Worker that adds the CORS header the browser
-   requires and forwards the request to the real API. Deploy worker.js once,
-   then paste its URL below (see DEPLOY-GITHUB.md).
+   The page calls the API directly. Your browser can already reach the API, so
+   no proxy is needed — the ONLY requirement is that the API returns a CORS
+   header for this page's origin. Add this page's origin (e.g.
+   https://bakhtiar-afbl.github.io) to CORS_ORIGINS on the API and restart it.
 
-   WORKER_BASE  : your Cloudflare Worker URL (looks like
-                  https://ael-proxy.<something>.workers.dev). All requests are
-                  sent to WORKER_BASE + "/api/v1/...".
    ACCESS_TOKEN : an access token sent with every request (NOT the SECRET_KEY).
                   30-day, low-privilege ("User") token. When it expires, replace
                   it (log in at the API's /ui, pick "30 days", copy the token).
    NOTE: anyone who can open this page can read this token — keep the repo
          private if you can, and rotate the token when it expires.
    ========================================================================== */
-const WORKER_BASE  = "https://broad-sky-a929.bakhtiar.workers.dev";   // <-- paste your Worker URL
+const API_BASE     = "https://arlapi.ibos.io";
 const ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MzUwODkzOCwiZXhwIjoxNzg2MTAwOTM4LCJlbnJvbGwiOjMwNjAwNywidXNlcm5hbWUiOiIzMDYwMDciLCJyb2xlIjoiVXNlciIsImp0aSI6ImNjYjY2MDdkYzI2NDg0YjI1NTE0ZTc5Mjk0NWY1NDg4In0.JFqvPMUPVktzE5c5ebsV4npSdGflpP10dPXymutxMEk";
 
 const $=(id)=>document.getElementById(id);
@@ -233,23 +230,17 @@ function fmtDate(s){if(!s)return"—";const d=new Date(s);if(isNaN(d))return esc
 function statusColor(v){const o=STATUS_OPTIONS.find(x=>x.v.toLowerCase()===String(v||"").toLowerCase());return o?o.c:'var(--txt-dim)';}
 function showCorsHelp(){
   const origin=(location.origin&&location.origin!=="null")?location.origin:"(this file's origin)";
-  const worker=esc(WORKER_BASE);
   $("corsHelp").style.display="block";
-  if(/CHANGE-ME/.test(WORKER_BASE)){
-    $("corsHelp").innerHTML=`⚠ The Worker URL isn't set yet. Deploy <code>worker.js</code> as a `+
-      `Cloudflare Worker, then set <code>WORKER_BASE</code> near the top of this file to its `+
-      `<code>…workers.dev</code> URL and re-upload. See DEPLOY-GITHUB.md.`;
-  } else {
-    $("corsHelp").innerHTML=`⚠ Couldn't reach the Worker at <code>${worker}</code> from <code>${esc(origin)}</code>.<br>`+
-      `Check that the Worker is deployed and that <code>worker.js</code> lists <code>${esc(origin)}</code> as an allowed origin. `+
-      `Opening the file directly (file://) always fails — serve it over http(s).`;
-  }
+  $("corsHelp").innerHTML=`⚠ The API didn't allow this page. Add this origin to the API's CORS list and restart it:<br>`+
+    `origin = <code>${esc(origin)}</code><br>`+
+    `In the API's <code>main.py</code>, hardcode it in the CORS middleware (see notes), or set `+
+    `<code>CORS_ORIGINS</code> to include it. Verify with the curl OPTIONS test. `+
+    `Opening the file directly (file://) always fails — serve it over http(s).`;
 }
-/* All requests go through the Cloudflare Worker, which adds CORS headers and
-   forwards to the real API. WORKER_BASE + path  ->  e.g.
-   https://ael-proxy.xxx.workers.dev/api/v1/daily-performance/?intEnroll=... */
+/* The page calls the API directly (your browser can reach it). This only works
+   once the API returns an Access-Control-Allow-Origin header for this origin. */
 async function apiFetch(path, opts){
-  const base = WORKER_BASE.replace(/\/+$/,'');
+  const base = API_BASE.replace(/\/+$/,'');
   try{ return await fetch(base + path, opts); }
   catch(e){ const err=new Error("NETWORK"); err.cors=true; throw err; }
 }
